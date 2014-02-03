@@ -78,6 +78,13 @@ page.onAlert = function(str) {
   }
 };
 
+page.onCallback = function(data){
+    if (data && data.type === 'message') {
+        //sendMessage("blanket:data", JSON.stringify(Object.keys(data)));
+        sendMessage(data.message);
+    }
+};
+
 // Relay console logging messages.
 page.onConsoleMessage = function(message) {
   sendMessage('console', message);

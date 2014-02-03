@@ -1,8 +1,8 @@
 {
-    "name": "grunt-blanket-mocha",
+    "name": "grunt-blanket-mocha-badoo",
     "description": "Headless Blanket.js code coverage and Mocha testing via PhantomJS",
     "version": "0.4.0",
-    "homepage": "https://github.com/ModelN/grunt-blanket-mocha",
+    "homepage": "https://github.com/netproteus/grunt-blanket-mocha",
     "author": {
         "name": "Dave Cadwallader",
         "email": "dcadwallader@gmail.com",
@@ -10,15 +10,15 @@
     },
     "repository": {
         "type": "git",
-        "url": "git://github.com/ModelN/grunt-blanket-mocha.git"
+        "url": "git://github.com/netproteus/grunt-blanket-mocha.git"
     },
     "bugs": {
-        "url": "https://github.com/ModelN/grunt-blanket-mocha/issues"
+        "url": "https://github.com/netproteus/grunt-blanket-mocha/issues"
     },
     "licenses": [
         {
             "type": "MIT",
-            "url": "https://github.com/ModelN/grunt-blanket-mocha/blob/master/LICENSE-MIT"
+            "url": "https://github.com/netproteus/grunt-blanket-mocha/blob/master/LICENSE-MIT"
         }
     ],
     "main": "Gruntfile.js",

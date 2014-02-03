@@ -97,9 +97,19 @@ module.exports = function(grunt) {
     var phantomjsEventManager = (function() {
         var listeners = {};
         var suites = [];
+        var options = {};
 
         phantomjs.on('blanket:done', function() {
             phantomjs.halt();
+        });
+
+        phantomjs.on('blanket:lcov', function(lcov) {
+            if (options && options.lcovDest) {
+                grunt.file.write(
+                    options.lcovDest,
+                    lcov
+                );
+            }
         });
 
         phantomjs.on('blanket:fileDone', function(thisTotal, filename) {
@@ -173,6 +183,14 @@ module.exports = function(grunt) {
             },
             remove: function(name) {
                 delete listeners[name];
+            },
+            setOptions: function(newOptions) {
+                // merge in new options that are defined directly
+                for(var key in newOptions) {
+                    if (newOptions.hasOwnProperty(key)) {
+                        options[key] = newOptions[key];
+                    }
+                }
             }
         };
     }());
@@ -217,8 +235,12 @@ module.exports = function(grunt) {
             // Fail with grunt.warn on first test failure
             bail: false,
             // Log script errors as grunt errors
-            logErrors: false
+            logErrors: false,
+            // File to write lcov data to
+            lcovDest: null
         });
+
+        phantomjsEventManager.setOptions(options);
 
         status = {blanketTotal: 0, blanketPass: 0, blanketFail: 0};
         coverageThreshold = grunt.option('threshold') || options.threshold;
