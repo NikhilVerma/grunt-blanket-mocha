@@ -1,5 +1,9 @@
 # grunt-blanket-mocha
 
+# Seeking Maintainers!
+
+This project is no longer actively being maintained.  If you are interested in taking over as a maintainer/owner, please [apply here](https://github.com/ModelN/grunt-blanket-mocha/issues/39)
+
 > Headless Blanket.js code coverage and Mocha testing via PhantomJS
 
 ## Wat?
@@ -20,8 +24,10 @@ This plugin, however:
 
 ## Parent Plugin
 
-This plugin is based on [kmiyashiro/grunt-mocha](https://github.com/kmiyashiro/grunt-mocha) and supports all the
-configurations of that plugin.  Please see that repo for more options on configuration.
+This plugin is based on [kmiyashiro/grunt-mocha](https://github.com/kmiyashiro/grunt-mocha/tree/8e72249b1042a270641633a69725ccf63fa10259) v0.4.10 and supports all the
+configurations of that plugin as of that version.  Please see that repo for more options on configuration.
+
+Changes from the upstream plugin will be merged periodically.
 
 ## Getting Started
 This plugin requires Grunt `~0.4.1`
@@ -40,14 +46,8 @@ grunt.loadNpmTasks('grunt-blanket-mocha');
 
 ## Dependencies
 
-* Blanket.js v1.1.5. 
-* Mocha (see note below)
-
-*Note about Mocha versions:* There is a bug in BlanketJS 1.1.5 which makes it incompatible with Mocha versions greater than 1.12.1.
-You have two choices:
-
-1. Use the master version of BlanketJS which has [a fix for this](https://github.com/alex-seville/blanket/pull/356). Then you can use the latest version of Mocha
-2. Use Mocha 1.12.1 and BlanketJS 1.1.5.
+* Blanket.js (tested with v1.1.6)
+* Mocha (tested with v2.0.1)
 
 ## The "blanket_mocha" task
 
@@ -57,6 +57,10 @@ This plugin is based off of grunt-contrib-mocha.  For general config options and
 
 ## Setup
 
+### Demo
+
+See the `example` and `example-requires` directories for a fully-working examples of the setup, including some of the scaffolding required to get all the pieces to fit together.  The `README` in that directory will walk you through it.
+
 ### Gruntfile
 
 In your project's Gruntfile, add a section named `blanket_mocha` to the data object passed into `grunt.initConfig()`.
@@ -64,9 +68,11 @@ In your project's Gruntfile, add a section named `blanket_mocha` to the data obj
 ```js
 grunt.initConfig({
   blanket_mocha: {
-    all: [ 'specs/index.html' ],
-    options: {
-        threshold: 70
+    test: {
+      src: ['specs/test.html'],
+      options : {
+          threshold : 70
+      }
     }
   }
 })
@@ -239,6 +245,16 @@ For example, if you only wanted to run specs that match the word "login" you cou
 In lieu of a formal styleguide, take care to maintain the existing coding style. Add unit tests for any new or changed functionality. Lint and test your code using [Grunt](http://gruntjs.com/).
 
 ## Release History
+
+## 0.4.1
+*Released 17 June 2014*
+
+* Better filename matching, and other misc fixes.
+
+## 0.4.0
+*Released 2 February 2014*
+
+* Pull upstream changes from grunt-mocha 0.4.10
 
 ### 0.3.4
 *Released 31 January 2014*

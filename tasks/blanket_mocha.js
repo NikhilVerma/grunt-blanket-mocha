@@ -13,33 +13,23 @@
 
 'use strict';
 
+// Nodejs libs.
+var _             = require('lodash');
+var util          = require('util');
+var path          = require('path');
+var EventEmitter  = require('events').EventEmitter;
+var reporters     = require('mocha').reporters;
+// Helpers
+var helpers       = require('../support/mocha-helpers');
+var util          = require('util');
+
 module.exports = function(grunt) {
 
-    var ok = true;
-
-    var _ = grunt.util._;
-    var util = require('util');
-
-    // Nodejs libs.
-    var path = require('path');
-    var EventEmitter = require('events').EventEmitter;
-
+    var ok, totals, status, coverageThreshold, modulePattern, modulePatternRegex, excludedFiles, customThreshold, customModuleThreshold;
     // External lib.
     var phantomjs = require('grunt-lib-phantomjs').init(grunt);
-    var reporters = require('mocha').reporters;
-
-    // Helpers
-    var helpers = require('../support/mocha-helpers');
 
     var reporter;
-
-    var status, coverageThreshold, modulePattern, modulePatternRegex, excludedFiles, customThreshold, customModuleThreshold;
-    var totals = {
-        totalLines: 0,
-        coveredLines: 0,
-        moduleTotalStatements : {},
-        moduleTotalCoveredStatements : {}
-    };
 
     // Growl is optional
     var growl;
@@ -58,8 +48,9 @@ module.exports = function(grunt) {
 
         var pass = (percent >= threshold);
 
-        //If not passed, check if file is marked for manual exclusion. Else, fail it.
-        var result = pass ? "PASS" : (  excludedFiles.indexOf(name) === -1 /*File not found*/  ? "FAIL" : "SKIP");
+        // If not passed, check if file is marked for manual exclusion. Else, fail it.
+        var exclude = _(excludedFiles).some(function (o) {return o.test(name);});
+        var result = pass ? "PASS" : ( exclude ? "SKIP" : "FAIL");
 
         var percentDisplay = Math.floor(percent);
         if (percentDisplay < 10) {
@@ -116,8 +107,13 @@ module.exports = function(grunt) {
             var totalLines = thisTotal[1];
 
             var threshold = coverageThreshold;
-            if (customThreshold[filename]) {
-                threshold = customThreshold[filename];
+
+            // Check for a custom threshold
+            var custom = _.find(customThreshold, function (o) {
+                return o[0].test(filename);
+            });
+            if (custom !== undefined) {
+                threshold = custom[1];
             }
 
             printPassFailMessage(filename, coveredLines, totalLines, threshold);
@@ -126,7 +122,9 @@ module.exports = function(grunt) {
             totals.coveredLines += coveredLines;
 
             if (modulePatternRegex) {
-                var moduleName = filename.match(modulePatternRegex)[1];
+                var match = filename.match(modulePatternRegex);
+				if (!match) return;
+                var moduleName = match[1];
                 if(!totals.moduleTotalStatements.hasOwnProperty(moduleName)) {
                     totals.moduleTotalStatements[moduleName] = 0;
                     totals.moduleTotalCoveredStatements[moduleName] = 0;
@@ -189,11 +187,6 @@ module.exports = function(grunt) {
         grunt.warn('PhantomJS unable to load "' + url + '" URI.', 90);
     });
 
-    phantomjs.on("error.onError", function(msg, trace) {
-        grunt.log.error(msg);
-        grunt.log.error(trace);
-    });
-
     phantomjs.on('fail.timeout', function() {
         phantomjs.halt();
         grunt.log.writeln();
@@ -201,7 +194,7 @@ module.exports = function(grunt) {
     });
 
     // Debugging messages.
-    // phantomjs.on('debug', grunt.log.debug.bind(grunt.log, 'phantomjs'));
+    phantomjs.on('debug', grunt.log.debug.bind(grunt.log, 'phantomjs'));
 
     // ==========================================================================
     // TASKS
@@ -224,8 +217,18 @@ module.exports = function(grunt) {
             // Explicit non-file URLs to test.
             urls: [],
             // Fail with grunt.warn on first test failure
-            bail: false
+            bail: false,
+            // Log script errors as grunt errors
+            logErrors: false
         });
+
+        ok = true;
+        totals = {
+            totalLines: 0,
+            coveredLines: 0,
+            moduleTotalStatements : {},
+            moduleTotalCoveredStatements : {}
+        };
 
         status = {blanketTotal: 0, blanketPass: 0, blanketFail: 0};
         coverageThreshold = grunt.option('threshold') || options.threshold;
@@ -238,30 +241,55 @@ module.exports = function(grunt) {
         var grep = grunt.option('grep');
         options.mocha = options.mocha || {};
 
-        //Get the array of excludedFiles
-        //Users should be able to define it in the command-line as an array or include it in the test file.
+        // Get the array of excludedFiles, normalize and prepare them
+        // Users should be able to define it in the command-line as an array or include it in the test file.
         excludedFiles =  grunt.option('excludedFiles') || options.excludedFiles || [];
+        excludedFiles = _(excludedFiles).map(function (o) {
+            return new RegExp(path.normalize(o) + '$');
+        }).value();
 
+        // Get the custom thresholds for files, normalize and prepare the file names
         customThreshold = grunt.option('customThreshold') || options.customThreshold || {};
+        customThreshold = _(customThreshold).pairs().map(function (o) {
+            return [new RegExp(path.normalize(o[0]) + '$'), o[1]];
+        }).value();
+
         customModuleThreshold = grunt.option('customModuleThreshold') || options.customModuleThreshold|| {};
 
         if (grep) {
             options.mocha.grep = grep;
         }
 
-        // console.log pass-through.
+
+        // Output console messages if log == true
         if (options.log) {
-            phantomjs.on('console', grunt.log.writeln.bind(grunt.log));
+            phantomjs.removeAllListeners(['console']);
+            phantomjs.on('console', grunt.log.writeln);
+        } else {
+            phantomjs.off('console', grunt.log.writeln);
         }
 
-        // Clean Phantomjs options to prevent any conflicts
-        var PhantomjsOptions = _.omit(options, 'reporter', 'urls');
+        // Output errors on script errors
+        if (options.logErrors) {
+            phantomjs.on('error.*', function(error, stack) {
+                var formattedStack = _.map(stack, function(frame) {
+                    return "    at " + (frame.function ? frame.function : "undefined") + " (" + frame.file + ":" + frame.line + ")";
+                }).join("\n");
+                grunt.fail.warn(error + "\n" + formattedStack, 3);
+            });
+        }
 
-        var configStr = JSON.stringify(PhantomjsOptions, null, '  ');
-        grunt.verbose.writeln('Additional configuration: ' + configStr);
+        var optsStr = JSON.stringify(options, null, '  ');
+        grunt.verbose.writeln('Options: ' + optsStr);
+
+        // Clean Phantomjs options to prevent any conflicts
+        var PhantomjsOptions = _.omit(options, 'reporter', 'urls', 'log', 'bail');
+
+        var phantomOptsStr = JSON.stringify(PhantomjsOptions, null, '  ');
+        grunt.verbose.writeln('Phantom options: ' + phantomOptsStr);
 
         // Combine any specified URLs with src files.
-        var urls = options.urls.concat(this.filesSrc);
+        var urls = options.urls.concat(_.compact(this.filesSrc));
 
         // Remember all stats from all tests
         var testStats = [];
@@ -270,14 +298,18 @@ module.exports = function(grunt) {
         var done = this.async();
 
         // Hijack console.log to capture reporter output
-        var dest = this.data.dest;
+        var dest = options.dest;
         var output = [];
         var consoleLog = console.log;
+        // Latest mocha xunit reporter sends to process.stdout instead of console
+        var processWrite = process.stdout.write;
 
         // Only hijack if we really need to
         if (dest) {
             console.log = function() {
                 consoleLog.apply(console, arguments);
+                // FIXME: This breaks older versions of mocha
+                // processWrite.apply(process.stdout, arguments);
                 output.push(util.format.apply(util, arguments));
             };
         }
@@ -299,20 +331,19 @@ module.exports = function(grunt) {
                     var Reporter = null;
                     if (reporters[options.reporter]) {
                         Reporter = reporters[options.reporter];
-                    }
-                    else {
+                    } else {
                         // Resolve external reporter module
-                        var p;
+                        var externalReporter;
                         try {
-                            p = require.resolve(options.reporter);
-                        }
-                        catch (e) {
+                            externalReporter = require.resolve(options.reporter);
+                        } catch (e) {
                             // Resolve to local path
-                            p = path.resolve(options.reporter);
+                            externalReporter = path.resolve(options.reporter);
                         }
-                        if (p) {
+
+                        if (externalReporter) {
                             try {
-                                Reporter = require(p);
+                                Reporter = require(externalReporter);
                             }
                             catch (e) { }
                         }
@@ -340,7 +371,7 @@ module.exports = function(grunt) {
 
                                 // If there was a PhantomJS error, abort the series.
                                 grunt.fatal(err);
-                                done();
+                                done(false);
                             } else {
                                 // If failures, show growl notice
                                 if (stats.failures > 0) {
@@ -367,7 +398,6 @@ module.exports = function(grunt) {
                 },
                 // All tests have been run.
                 function() {
-
                     if (dest) {
                         // Restore console.log to original and write the output
                         console.log = consoleLog;
